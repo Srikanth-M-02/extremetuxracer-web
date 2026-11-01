@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Extreme Tux Racer</title>
+<meta name="description" content="Extreme Tux Racer, the open source downhill racing game, running in your browser with WebAssembly and WebGL 2.">
+<style>
+  :root {
+    --bg: #0b1424;
+    --panel: rgba(9, 18, 34, 0.86);
+    --text: #e8f1ff;
+    --muted: #9fb3cf;
+    --accent: #ffd34d;
+    --bar: #23324d;
+    --error: #ff8a80;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  #stage {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+  }
+  #canvas {
+    display: block;
+    outline: none;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: radial-gradient(ellipse at 50% 30%, #1d3557 0%, var(--bg) 70%);
+    z-index: 10;
+    transition: opacity 0.4s ease;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+  .card {
+    width: min(460px, 100%);
+    text-align: center;
+  }
+  h1 {
+    margin: 0 0 4px;
+    font-size: clamp(26px, 6vw, 38px);
+    letter-spacing: 0.02em;
+    font-weight: 800;
+  }
+  h1 span { color: var(--accent); }
+  .tagline { margin: 0 0 28px; color: var(--muted); }
+  .progress {
+    height: 8px;
+    border-radius: 4px;
+    background: var(--bar);
+    overflow: hidden;
+  }
+  .progress > div {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #7fb8ff, var(--accent));
+    transition: width 0.2s ease;
+  }
+  #status { margin: 10px 0 0; min-height: 1.5em; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #status.error { color: var(--error); }
+  .keys {
+    margin: 28px 0 0;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: var(--panel);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 14px;
+    text-align: left;
+    font-size: 14px;
+  }
+  .keys dt { color: var(--accent); font-weight: 600; white-space: nowrap; }
+  .keys dd { margin: 0; color: var(--text); }
+  .foot { margin: 22px 0 0; font-size: 12.5px; color: var(--muted); }
+  .foot a { color: var(--muted); }
+  #controls {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 5;
+    display: flex;
+    gap: 8px;
+    opacity: 0.35;
+    transition: opacity 0.2s ease;
+  }
+  #controls:hover, #controls:focus-within { opacity: 1; }
+  #controls button {
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--panel);
+    color: var(--text);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+  }
+  #controls button:focus-visible { outline: 2px solid var(--accent); }
+  #controls svg { width: 20px; height: 20px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="canvas" tabindex="-1" aria-label="Extreme Tux Racer game"></canvas>
+</div>
+
+<div id="controls">
+  <button id="fullscreen" type="button" title="Toggle full screen" aria-label="Toggle full screen">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>
+    </svg>
+  </button>
+</div>
+
+<div id="loader" class="overlay">
+  <div class="card">
+    <h1>Extreme <span>Tux</span> Racer</h1>
+    <p class="tagline">Race Tux down snowy mountains, collect herrings, beat the clock.</p>
+    <div class="progress" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100"><div id="bar"></div></div>
+    <p id="status" aria-live="polite">Starting…</p>
+    <dl class="keys">
+      <dt>← →</dt><dd>Steer</dd>
+      <dt>↑ / W</dt><dd>Paddle</dd>
+      <dt>↓ / S</dt><dd>Brake</dd>
+      <dt>Space</dt><dd>Jump (hold to charge)</dd>
+      <dt>T + arrows</dt><dd>Tricks in the air</dd>
+      <dt>P · R · Esc</dt><dd>Pause · Reset · Abort race</dd>
+    </dl>
+    <p class="foot">
+      Free software under the GNU GPL v2 or later ·
+      <a href="https://github.com/Srikanth-M-02/extremetuxracer-web" target="_blank" rel="noopener">Source code</a> ·
+      <a href="https://sourceforge.net/projects/extremetuxracer/" target="_blank" rel="noopener">Original project</a>
+    </p>
+  </div>
+</div>
+
+<script>
+(function() {
+  var loader = document.getElementById('loader');
+  var bar = document.getElementById('bar');
+  var statusEl = document.getElementById('status');
+  var stage = document.getElementById('stage');
+  var canvas = document.getElementById('canvas');
+  var failed = false;
+
+  function setStatus(text, isError) {
+    statusEl.textContent = text;
+    statusEl.classList.toggle('error', !!isError);
+  }
+
+  function fatal(message) {
+    failed = true;
+    loader.classList.remove('hidden');
+    bar.parentNode.style.display = 'none';
+    setStatus(message, true);
+  }
+
+  // Render size: the stage size in device pixels, capped so very high
+  // density displays don't render more pixels than necessary.
+  function availableSize() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var w = Math.max(320, Math.round(stage.clientWidth * dpr));
+    var h = Math.max(240, Math.round(stage.clientHeight * dpr));
+    var budget = 2560 * 1440;
+    if (w * h > budget) {
+      var f = Math.sqrt(budget / (w * h));
+      w = Math.round(w * f);
+      h = Math.round(h * f);
+    }
+    return [w, h];
+  }
+
+  // Letterbox the canvas into the stage, keeping its aspect ratio. The game
+  // switches to the new window size at the next screen change.
+  function fitCanvas() {
+    var cw = canvas.width || 4, ch = canvas.height || 3;
+    var sw = stage.clientWidth, sh = stage.clientHeight;
+    var scale = Math.min(sw / cw, sh / ch);
+    canvas.style.width = Math.floor(cw * scale) + 'px';
+    canvas.style.height = Math.floor(ch * scale) + 'px';
+  }
+  window.addEventListener('resize', fitCanvas);
+
+  document.getElementById('fullscreen').addEventListener('click', function() {
+    var doc = document;
+    if (doc.fullscreenElement || doc.webkitFullscreenElement) {
+      (doc.exitFullscreen || doc.webkitExitFullscreen).call(doc);
+    } else {
+      var el = document.documentElement;
+      var req = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (req) req.call(el);
+    }
+    canvas.focus();
+  });
+
+  if (!document.createElement('canvas').getContext('webgl2')) {
+    fatal('Sorry, this browser does not support WebGL 2, which the game needs. Try a current version of Firefox, Chrome, Edge or Safari.');
+    return;
+  }
+
+  var totalDeps = 0;
+  window.Module = {
+    canvas: canvas,
+    print: function(text) { console.log(text); },
+    printErr: function(text) { console.warn(text); },
+    setStatus: function(text) {
+      if (failed || !text) return;
+      var m = text.match(/\(([\d.]+)\/([\d.]+)\)/);
+      if (m) {
+        var done = parseInt(m[1], 10), total = parseInt(m[2], 10);
+        var pct = total ? Math.round(done * 100 / total) : 0;
+        bar.style.width = pct + '%';
+        bar.parentNode.setAttribute('aria-valuenow', pct);
+        setStatus('Downloading game data… ' + (done / 1048576).toFixed(1) + ' / ' + (total / 1048576).toFixed(1) + ' MB');
+      } else {
+        setStatus(text.replace(/\.\.\.$/, '…'));
+      }
+    },
+    monitorRunDependencies: function(left) {
+      totalDeps = Math.max(totalDeps, left);
+      if (left === 0) setStatus('Starting…');
+    },
+    onRuntimeInitialized: function() {
+      bar.style.width = '100%';
+      setTimeout(function() { if (!failed) loader.classList.add('hidden'); }, 300);
+      canvas.focus();
+    },
+    onAbort: function(what) {
+      fatal('The game stopped unexpectedly. Reload the page to try again.');
+    },
+    etrAvailableSize: availableSize,
+    etrFitCanvas: fitCanvas,
+    etrFatal: fatal,
+    etrOnExit: function() {
+      loader.classList.remove('hidden');
+      bar.parentNode.style.display = 'none';
+      setStatus('Thanks for playing! Reload the page to race again.');
+    }
+  };
+
+  window.addEventListener('error', function(e) {
+    if (!failed && /wasm|WebAssembly/i.test(String(e.message))) fatal('The game failed to load: ' + e.message);
+  });
+  canvas.addEventListener('mousedown', function() { canvas.focus(); });
+})();
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>

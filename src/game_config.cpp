@@ -275,6 +275,17 @@ void InitConfig() {
 	if (FileExists(param.configfile)) {
 		config_exist = 1;
 	}
+#elif defined(__EMSCRIPTEN__)
+	// Web build: the game data is preloaded into the virtual file system
+	// at /data; options, players and scores are kept in /persist, which is
+	// backed by IndexedDB (see port/web).
+	param.config_dir = "/persist";
+	param.data_dir = "/data";
+	param.save_dir = param.config_dir;
+	param.configfile = param.config_dir + SEP "options.txt";
+	if (FileExists(param.configfile)) {
+		config_exist = 1;
+	}
 #else /* WIN32 */
 
 #if 0

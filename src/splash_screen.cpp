@@ -70,6 +70,15 @@ void CSplashScreen::Loop(float time_step) {
 	Winsys.draw(logo);
 	Winsys.SwapBuffers();
 
+#ifdef __EMSCRIPTEN__
+	// Present the splash screen before blocking on loading resources.
+	static bool framePresented = false;
+	if (!framePresented) {
+		framePresented = true;
+		return;
+	}
+#endif
+
 	if (!Failure) {
 		init_ui_snow();
 
