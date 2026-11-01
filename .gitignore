@@ -1,0 +1,3 @@
+# CMake build directories (note: build/ holds upstream Visual Studio files)
+/build-web/
+/build-*/

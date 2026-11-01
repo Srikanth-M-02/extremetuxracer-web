@@ -52,6 +52,7 @@ public:
 	void SetupVideoMode(const TScreenRes& res);
 	void SetupVideoMode(std::size_t idx);
 	void SetupVideoMode(int width, int height);
+	void ApplyPendingResize();
 	void KeyRepeat(bool repeat);
 	void PrintJoystickInfo() const;
 	void ShowCursor(bool visible) { window.setMouseCursorVisible(visible); }

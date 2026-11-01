@@ -23,6 +23,16 @@ GNU General Public License for more details.
 #include "ogl.h"
 #include "winsys.h"
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#include "../port/web/web_platform.h"
+
+// The browser owns the main loop: one iteration per animation frame.
+static void MainLoopIteration(void* manager) {
+	static_cast<State::Manager*>(manager)->Iterate();
+}
+#endif
+
 State::Manager State::manager(Winsys);
 
 State::Manager::~Manager() {
@@ -33,6 +43,10 @@ State::Manager::~Manager() {
 void State::Manager::Run(State& entranceState) {
 	current = &entranceState;
 	current->Enter();
+#ifdef __EMSCRIPTEN__
+	// Never returns; Iterate() is called once per animation frame.
+	emscripten_set_main_loop_arg(MainLoopIteration, this, 0, true);
+#endif
 	while (!quit) {
 		PollEvent();
 		if (next)
@@ -44,12 +58,40 @@ void State::Manager::Run(State& entranceState) {
 	current = nullptr;
 }
 
+#ifdef __EMSCRIPTEN__
+void State::Manager::Iterate() {
+	if (quit) {
+		current->Exit();
+		previous = current;
+		current = nullptr;
+		emscripten_cancel_main_loop();
+		Winsys.Quit();
+		WebPlatform::GameExited();
+		return;
+	}
+	PollEvent();
+	if (next)
+		EnterNextState();
+	CallLoopFunction();
+}
+#endif
+
 void State::Manager::EnterNextState() {
 	current->Exit();
 	previous = current;
 	current = next;
 	next = nullptr;
+#ifdef __EMSCRIPTEN__
+	// Persist progress (there is no "quit" when a browser tab is closed)
+	// and pick up browser window size changes. Doing the latter between
+	// states means every screen lays itself out for the new size in Enter().
+	WebPlatform::SaveProgress();
+	Winsys.ApplyPendingResize();
+#endif
 	current->Enter();
+#ifdef __EMSCRIPTEN__
+	WebPlatform::StateEntered(current);
+#endif
 }
 
 void State::Manager::PollEvent() {

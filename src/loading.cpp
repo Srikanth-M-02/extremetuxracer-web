@@ -35,7 +35,14 @@ GNU General Public License for more details.
 CLoading Loading;
 
 // ====================================================================
+#ifdef __EMSCRIPTEN__
+static bool framePresented = false;
+#endif
+
 void CLoading::Enter() {
+#ifdef __EMSCRIPTEN__
+	framePresented = false;
+#endif
 	Winsys.ShowCursor(false);
 	Music.Play("loading", true);
 }
@@ -61,6 +68,15 @@ void CLoading::Loop(float time_step) {
 	FT.SetColor(colWhite);
 	FT.DrawString(CENTER, AutoYPosN(70), Trans.Text(30));
 	Winsys.SwapBuffers();
+
+#ifdef __EMSCRIPTEN__
+	// The browser only shows a frame once the frame callback returns, so
+	// present the loading screen before blocking on the course data.
+	if (!framePresented) {
+		framePresented = true;
+		return;
+	}
+#endif
 
 	Course.LoadCourse(g_game.course);
 	g_game.location_id = Course.GetEnv();

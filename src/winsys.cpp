@@ -93,7 +93,15 @@ void CWinsys::SetupVideoMode(const TScreenRes& res) {
 	if (param.fullscreen)
 		style |= sf::Style::Fullscreen;
 
+#ifdef __EMSCRIPTEN__
+	// In the browser the canvas always fills the page; the resolution
+	// chosen on the options screen does not apply.
+	(void)res;
+	const sf::Vector2u avail = sf::Window::getAvailableSize();
+	resolution = TScreenRes(avail.x, avail.y);
+#else
 	resolution = res;
+#endif
 
 	ResetRenderMode();
 
@@ -129,6 +137,14 @@ void CWinsys::SetupVideoMode(int width, int height) {
 
 void CWinsys::Init() {
 	SetupVideoMode(GetResolution(param.res_type));
+}
+
+void CWinsys::ApplyPendingResize() {
+#ifdef __EMSCRIPTEN__
+	const sf::Vector2u avail = sf::Window::getAvailableSize();
+	if (avail.x != resolution.width || avail.y != resolution.height)
+		SetupVideoMode(TScreenRes(avail.x, avail.y));
+#endif
 }
 
 void CWinsys::KeyRepeat(bool repeat) {
@@ -169,6 +185,15 @@ void CWinsys::PrintJoystickInfo() const {
 }
 
 void CWinsys::TakeScreenshot() const {
+#ifdef __EMSCRIPTEN__
+	// Offered to the user as a download once the current frame is drawn.
+	std::string name = g_game.course ? g_game.course->dir : std::string("etr");
+	name += '_';
+	name += GetTimeString();
+	name += SCREENSHOT_FORMAT;
+	window.requestScreenshot(name);
+	return;
+#endif
 	sf::Texture tex;
 	tex.create(window.getSize().x, window.getSize().y);
 	tex.update(window);

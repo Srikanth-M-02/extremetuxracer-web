@@ -50,6 +50,9 @@ public:
 		void RequestEnterState(State& state) { next = &state; }
 		void RequestQuit() { quit = true; }
 		void Run(State& entranceState);
+#ifdef __EMSCRIPTEN__
+		void Iterate();
+#endif
 		State* PreviousState() { return previous; }
 		State* CurrentState() { return current; }
 	};

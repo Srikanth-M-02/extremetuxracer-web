@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Extreme Tux Racer</title>
+<meta name="description" content="Extreme Tux Racer, the open source downhill racing game, running in your browser with WebAssembly and WebGL 2.">
+<style>
+  :root {
+    --bg: #0b1424;
+    --panel: rgba(9, 18, 34, 0.86);
+    --text: #e8f1ff;
+    --muted: #9fb3cf;
+    --accent: #ffd34d;
+    --bar: #23324d;
+    --error: #ff8a80;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  #stage {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+  }
+  #canvas {
+    display: block;
+    outline: none;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: radial-gradient(ellipse at 50% 30%, #1d3557 0%, var(--bg) 70%);
+    z-index: 10;
+    transition: opacity 0.4s ease;
+  }
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+  .card {
+    width: min(460px, 100%);
+    text-align: center;
+  }
+  h1 {
+    margin: 0 0 4px;
+    font-size: clamp(26px, 6vw, 38px);
+    letter-spacing: 0.02em;
+    font-weight: 800;
+  }
+  h1 span { color: var(--accent); }
+  .tagline { margin: 0 0 28px; color: var(--muted); }
+  .progress {
+    height: 8px;
+    border-radius: 4px;
+    background: var(--bar);
+    overflow: hidden;
+  }
+  .progress > div {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #7fb8ff, var(--accent));
+    transition: width 0.2s ease;
+  }
+  #status { margin: 10px 0 0; min-height: 1.5em; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #status.error { color: var(--error); }
+  #again {
+    margin: 14px 0 0;
+    padding: 10px 22px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #1a1a1a;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  #again:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .keys {
+    margin: 28px 0 0;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: var(--panel);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 14px;
+    text-align: left;
+    font-size: 14px;
+  }
+  .keys dt { color: var(--accent); font-weight: 600; white-space: nowrap; }
+  .keys dd { margin: 0; color: var(--text); }
+  .foot { margin: 22px 0 0; font-size: 12.5px; color: var(--muted); }
+  .foot a { color: var(--muted); }
+  /* On-screen controls for touch devices, shown only while racing. */
+  #touchpad { display: none; }
+  body.touch.racing #touchpad { display: block; }
+  #touchpad .cluster {
+    position: fixed;
+    bottom: max(14px, env(safe-area-inset-bottom));
+    display: flex;
+    gap: 12px;
+    z-index: 6;
+    align-items: flex-end;
+  }
+  #touchpad .left { left: max(14px, env(safe-area-inset-left)); }
+  /* leave room for the speedometer the game draws in the corner */
+  #touchpad .right { right: calc(max(14px, env(safe-area-inset-right)) + 18vh); }
+  #touchpad .stack { display: flex; flex-direction: column; gap: 12px; }
+  #touchpad button {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.55);
+    background: rgba(9, 18, 34, 0.38);
+    color: #fff;
+    font: 700 13px/1 system-ui, sans-serif;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    display: grid;
+    place-items: center;
+  }
+  #touchpad button.pressed { background: rgba(255, 211, 77, 0.6); border-color: var(--accent); }
+  #touchpad button.jump { width: 84px; height: 84px; }
+  #touchpad svg { width: 30px; height: 30px; }
+  #touchpad .pause {
+    position: fixed;
+    top: 8px;
+    left: calc(50% + 26px);
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    z-index: 6;
+  }
+  #touchpad .pause svg { width: 18px; height: 18px; }
+  /* top centre: the game's HUD uses the corners */
+  #controls {
+    position: fixed;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    display: flex;
+    gap: 8px;
+    opacity: 0.35;
+    transition: opacity 0.2s ease;
+  }
+  #controls:hover, #controls:focus-within { opacity: 1; }
+  #controls button {
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--panel);
+    color: var(--text);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+  }
+  #controls button:focus-visible { outline: 2px solid var(--accent); }
+  #controls svg { width: 20px; height: 20px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="canvas" tabindex="-1" aria-label="Extreme Tux Racer game"></canvas>
+</div>
+
+<div id="controls">
+  <button id="fullscreen" type="button" title="Toggle full screen" aria-label="Toggle full screen">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>
+    </svg>
+  </button>
+</div>
+
+<div id="touchpad" aria-hidden="true">
+  <div class="cluster left">
+    <button type="button" data-key="ArrowLeft" aria-label="Steer left"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15 5 7 12l8 7z"/></svg></button>
+    <button type="button" data-key="ArrowRight" aria-label="Steer right"><svg viewBox="0 0 24 24" fill="currentColor"><path d="m9 5 8 7-8 7z"/></svg></button>
+  </div>
+  <div class="cluster right">
+    <button type="button" class="jump" data-key="Space" aria-label="Jump">JUMP</button>
+    <div class="stack">
+      <button type="button" data-key="ArrowUp" aria-label="Paddle"><svg viewBox="0 0 24 24" fill="currentColor"><path d="m5 15 7-8 7 8z"/></svg></button>
+      <button type="button" data-key="ArrowDown" aria-label="Brake"><svg viewBox="0 0 24 24" fill="currentColor"><path d="m5 9 7 8 7-8z"/></svg></button>
+    </div>
+  </div>
+  <button type="button" class="pause" data-key="KeyP" aria-label="Pause"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h3v14H7zM14 5h3v14h-3z"/></svg></button>
+</div>
+
+<div id="loader" class="overlay">
+  <div class="card">
+    <h1>Extreme <span>Tux</span> Racer</h1>
+    <p class="tagline">Race Tux down snowy mountains, collect herrings, beat the clock.</p>
+    <div class="progress" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100"><div id="bar"></div></div>
+    <p id="status" aria-live="polite">Starting…</p>
+    <button id="again" type="button" hidden>Play again</button>
+    <dl class="keys">
+      <dt>← →</dt><dd>Steer</dd>
+      <dt>↑ / W</dt><dd>Paddle</dd>
+      <dt>↓ / S</dt><dd>Brake</dd>
+      <dt>Space</dt><dd>Jump (hold to charge)</dd>
+      <dt>T + arrows</dt><dd>Tricks in the air</dd>
+      <dt>P · R · Esc</dt><dd>Pause · Reset · Abort race</dd>
+    </dl>
+    <p class="foot">
+      Free software under the GNU GPL v2 or later ·
+      <a href="https://github.com/Srikanth-M-02/extremetuxracer-web" target="_blank" rel="noopener">Source code</a> ·
+      <a href="https://sourceforge.net/projects/extremetuxracer/" target="_blank" rel="noopener">Original project</a>
+    </p>
+  </div>
+</div>
+
+<script>
+(function() {
+  var loader = document.getElementById('loader');
+  var bar = document.getElementById('bar');
+  var statusEl = document.getElementById('status');
+  var stage = document.getElementById('stage');
+  var canvas = document.getElementById('canvas');
+  var again = document.getElementById('again');
+  var failed = false;
+  again.addEventListener('click', function() { location.reload(); });
+
+  function setStatus(text, isError) {
+    statusEl.textContent = text;
+    statusEl.classList.toggle('error', !!isError);
+  }
+
+  function fatal(message) {
+    failed = true;
+    loader.classList.remove('hidden');
+    bar.parentNode.style.display = 'none';
+    setStatus(message, true);
+  }
+
+  // Render size: the stage size in device pixels, capped so very high
+  // density displays don't render more pixels than necessary. The game's
+  // menus are laid out for at least 600 pixels of height, so smaller
+  // windows render at that height and are scaled down.
+  function availableSize() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var w = Math.max(1, Math.round(stage.clientWidth * dpr));
+    var h = Math.max(1, Math.round(stage.clientHeight * dpr));
+    var minH = 600;
+    if (h < minH) {
+      w = Math.round(w * minH / h);
+      h = minH;
+    }
+    w = Math.max(w, 640);
+    var budget = 2560 * 1440;
+    if (w * h > budget) {
+      var f = Math.sqrt(budget / (w * h));
+      w = Math.round(w * f);
+      h = Math.round(h * f);
+    }
+    return [w, h];
+  }
+
+  // Letterbox the canvas into the stage, keeping its aspect ratio. The game
+  // switches to the new window size at the next screen change.
+  function fitCanvas() {
+    var cw = canvas.width || 4, ch = canvas.height || 3;
+    var sw = stage.clientWidth, sh = stage.clientHeight;
+    var scale = Math.min(sw / cw, sh / ch);
+    canvas.style.width = Math.floor(cw * scale) + 'px';
+    canvas.style.height = Math.floor(ch * scale) + 'px';
+  }
+  window.addEventListener('resize', fitCanvas);
+
+  function isFullscreen() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement);
+  }
+  function setFullscreen(on) {
+    try {
+      if (on && !isFullscreen()) {
+        var el = document.documentElement;
+        var req = el.requestFullscreen || el.webkitRequestFullscreen;
+        var p = req && req.call(el);
+        if (p && p.catch) p.catch(function() {});
+      } else if (!on && isFullscreen()) {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      }
+    } catch (e) { /* not allowed without a user gesture */ }
+  }
+  document.getElementById('fullscreen').addEventListener('click', function() {
+    setFullscreen(!isFullscreen());
+    canvas.focus();
+  });
+
+  // Touch controls: each button sends a key to the game while held.
+  var isTouch = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || navigator.maxTouchPoints > 0;
+  if (isTouch) document.body.classList.add('touch');
+  function sendKey(code, down) {
+    if (window.Module && Module.etrReady && Module.ccall)
+      Module.ccall('etr_inject_key', null, ['string', 'number'], [code, down ? 1 : 0]);
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('#touchpad button'), function(btn) {
+    var code = btn.getAttribute('data-key');
+    function press(e) {
+      e.preventDefault();
+      if (btn.setPointerCapture) { try { btn.setPointerCapture(e.pointerId); } catch (err) {} }
+      btn.classList.add('pressed');
+      sendKey(code, true);
+    }
+    function release(e) {
+      if (!btn.classList.contains('pressed')) return;
+      btn.classList.remove('pressed');
+      sendKey(code, false);
+    }
+    btn.addEventListener('pointerdown', press);
+    btn.addEventListener('pointerup', release);
+    btn.addEventListener('pointercancel', release);
+    btn.addEventListener('lostpointercapture', release);
+    btn.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+  });
+  function setRacing(on) {
+    document.body.classList.toggle('racing', !!on);
+    if (!on) {
+      Array.prototype.forEach.call(document.querySelectorAll('#touchpad button.pressed'), function(btn) {
+        btn.classList.remove('pressed');
+        sendKey(btn.getAttribute('data-key'), false);
+      });
+    }
+  }
+
+  if (!document.createElement('canvas').getContext('webgl2')) {
+    fatal('Sorry, this browser does not support WebGL 2, which the game needs. Try a current version of Firefox, Chrome, Edge or Safari.');
+    return;
+  }
+
+  var totalDeps = 0;
+  window.Module = {
+    canvas: canvas,
+    print: function(text) { console.log(text); },
+    printErr: function(text) { console.warn(text); },
+    setStatus: function(text) {
+      if (failed || !text) return;
+      var m = text.match(/\(([\d.]+)\/([\d.]+)\)/);
+      if (m) {
+        var done = parseInt(m[1], 10), total = parseInt(m[2], 10);
+        var pct = total ? Math.round(done * 100 / total) : 0;
+        bar.style.width = pct + '%';
+        bar.parentNode.setAttribute('aria-valuenow', pct);
+        setStatus('Downloading game data… ' + (done / 1048576).toFixed(1) + ' / ' + (total / 1048576).toFixed(1) + ' MB');
+      } else {
+        setStatus(text.replace(/\.\.\.$/, '…'));
+      }
+    },
+    monitorRunDependencies: function(left) {
+      totalDeps = Math.max(totalDeps, left);
+      if (left === 0) setStatus('Starting…');
+    },
+    onRuntimeInitialized: function() {
+      bar.style.width = '100%';
+      setTimeout(function() { if (!failed) loader.classList.add('hidden'); }, 300);
+      canvas.focus();
+    },
+    onAbort: function(what) {
+      fatal('The game stopped unexpectedly. Reload the page to try again.');
+    },
+    etrAvailableSize: availableSize,
+    etrFitCanvas: fitCanvas,
+    etrFatal: fatal,
+    etrSetFullscreen: setFullscreen,
+    etrSetRacing: setRacing,
+    etrOnExit: function() {
+      setFullscreen(false);
+      loader.classList.remove('hidden');
+      bar.parentNode.style.display = 'none';
+      setStatus('Thanks for playing!');
+      again.hidden = false;
+      again.focus();
+    }
+  };
+
+  window.addEventListener('error', function(e) {
+    if (!failed && /wasm|WebAssembly/i.test(String(e.message))) fatal('The game failed to load: ' + e.message);
+  });
+  canvas.addEventListener('mousedown', function() { canvas.focus(); });
+})();
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>
