@@ -106,10 +106,55 @@
   .keys dd { margin: 0; color: var(--text); }
   .foot { margin: 22px 0 0; font-size: 12.5px; color: var(--muted); }
   .foot a { color: var(--muted); }
+  /* On-screen controls for touch devices, shown only while racing. */
+  #touchpad { display: none; }
+  body.touch.racing #touchpad { display: block; }
+  #touchpad .cluster {
+    position: fixed;
+    bottom: max(14px, env(safe-area-inset-bottom));
+    display: flex;
+    gap: 12px;
+    z-index: 6;
+    align-items: flex-end;
+  }
+  #touchpad .left { left: max(14px, env(safe-area-inset-left)); }
+  /* leave room for the speedometer the game draws in the corner */
+  #touchpad .right { right: calc(max(14px, env(safe-area-inset-right)) + 18vh); }
+  #touchpad .stack { display: flex; flex-direction: column; gap: 12px; }
+  #touchpad button {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.55);
+    background: rgba(9, 18, 34, 0.38);
+    color: #fff;
+    font: 700 13px/1 system-ui, sans-serif;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    display: grid;
+    place-items: center;
+  }
+  #touchpad button.pressed { background: rgba(255, 211, 77, 0.6); border-color: var(--accent); }
+  #touchpad button.jump { width: 84px; height: 84px; }
+  #touchpad svg { width: 30px; height: 30px; }
+  #touchpad .pause {
+    position: fixed;
+    top: 8px;
+    left: calc(50% + 26px);
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    z-index: 6;
+  }
+  #touchpad .pause svg { width: 18px; height: 18px; }
+  /* top centre: the game's HUD uses the corners */
   #controls {
     position: fixed;
-    top: 10px;
-    right: 10px;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 5;
     display: flex;
     gap: 8px;
@@ -143,6 +188,21 @@
       <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>
     </svg>
   </button>
+</div>
+
+<div id="touchpad" aria-hidden="true">
+  <div class="cluster left">
+    <button type="button" data-key="ArrowLeft" aria-label="Steer left"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15 5 7 12l8 7z"/></svg></button>
+    <button type="button" data-key="ArrowRight" aria-label="Steer right"><svg viewBox="0 0 24 24" fill="currentColor"><path d="m9 5 8 7-8 7z"/></svg></button>
+  </div>
+  <div class="cluster right">
+    <button type="button" class="jump" data-key="Space" aria-label="Jump">JUMP</button>
+    <div class="stack">
+      <button type="button" data-key="ArrowUp" aria-label="Paddle"><svg viewBox="0 0 24 24" fill="currentColor"><path d="m5 15 7-8 7 8z"/></svg></button>
+      <button type="button" data-key="ArrowDown" aria-label="Brake"><svg viewBox="0 0 24 24" fill="currentColor"><path d="m5 9 7 8 7-8z"/></svg></button>
+    </div>
+  </div>
+  <button type="button" class="pause" data-key="KeyP" aria-label="Pause"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h3v14H7zM14 5h3v14h-3z"/></svg></button>
 </div>
 
 <div id="loader" class="overlay">
@@ -192,11 +252,19 @@
   }
 
   // Render size: the stage size in device pixels, capped so very high
-  // density displays don't render more pixels than necessary.
+  // density displays don't render more pixels than necessary. The game's
+  // menus are laid out for at least 600 pixels of height, so smaller
+  // windows render at that height and are scaled down.
   function availableSize() {
     var dpr = Math.min(window.devicePixelRatio || 1, 2);
-    var w = Math.max(320, Math.round(stage.clientWidth * dpr));
-    var h = Math.max(240, Math.round(stage.clientHeight * dpr));
+    var w = Math.max(1, Math.round(stage.clientWidth * dpr));
+    var h = Math.max(1, Math.round(stage.clientHeight * dpr));
+    var minH = 600;
+    if (h < minH) {
+      w = Math.round(w * minH / h);
+      h = minH;
+    }
+    w = Math.max(w, 640);
     var budget = 2560 * 1440;
     if (w * h > budget) {
       var f = Math.sqrt(budget / (w * h));
@@ -237,6 +305,42 @@
     canvas.focus();
   });
 
+  // Touch controls: each button sends a key to the game while held.
+  var isTouch = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || navigator.maxTouchPoints > 0;
+  if (isTouch) document.body.classList.add('touch');
+  function sendKey(code, down) {
+    if (window.Module && Module.etrReady && Module.ccall)
+      Module.ccall('etr_inject_key', null, ['string', 'number'], [code, down ? 1 : 0]);
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('#touchpad button'), function(btn) {
+    var code = btn.getAttribute('data-key');
+    function press(e) {
+      e.preventDefault();
+      if (btn.setPointerCapture) { try { btn.setPointerCapture(e.pointerId); } catch (err) {} }
+      btn.classList.add('pressed');
+      sendKey(code, true);
+    }
+    function release(e) {
+      if (!btn.classList.contains('pressed')) return;
+      btn.classList.remove('pressed');
+      sendKey(code, false);
+    }
+    btn.addEventListener('pointerdown', press);
+    btn.addEventListener('pointerup', release);
+    btn.addEventListener('pointercancel', release);
+    btn.addEventListener('lostpointercapture', release);
+    btn.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+  });
+  function setRacing(on) {
+    document.body.classList.toggle('racing', !!on);
+    if (!on) {
+      Array.prototype.forEach.call(document.querySelectorAll('#touchpad button.pressed'), function(btn) {
+        btn.classList.remove('pressed');
+        sendKey(btn.getAttribute('data-key'), false);
+      });
+    }
+  }
+
   if (!document.createElement('canvas').getContext('webgl2')) {
     fatal('Sorry, this browser does not support WebGL 2, which the game needs. Try a current version of Firefox, Chrome, Edge or Safari.');
     return;
@@ -276,6 +380,7 @@
     etrFitCanvas: fitCanvas,
     etrFatal: fatal,
     etrSetFullscreen: setFullscreen,
+    etrSetRacing: setRacing,
     etrOnExit: function() {
       setFullscreen(false);
       loader.classList.remove('hidden');

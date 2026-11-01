@@ -14,6 +14,7 @@ of the License, or (at your option) any later version.
 #include "../../src/bh.h"
 #include "../../src/game_ctrl.h"
 #include "../../src/score.h"
+#include "../../src/racing.h"
 
 #include <emscripten.h>
 
@@ -47,6 +48,11 @@ bool IsFullscreen() {
 
 void SetFullscreen(bool on) {
 	etr_set_fullscreen(on ? 1 : 0);
+}
+
+void StateEntered(const State* state) {
+	const int racing = (state == &Racing) ? 1 : 0;
+	EM_ASM({ if (Module.etrSetRacing) Module.etrSetRacing(!!$0); }, racing);
 }
 
 void GameExited() {

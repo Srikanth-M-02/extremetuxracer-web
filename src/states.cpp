@@ -89,6 +89,9 @@ void State::Manager::EnterNextState() {
 	Winsys.ApplyPendingResize();
 #endif
 	current->Enter();
+#ifdef __EMSCRIPTEN__
+	WebPlatform::StateEntered(current);
+#endif
 }
 
 void State::Manager::PollEvent() {

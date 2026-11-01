@@ -414,6 +414,15 @@ void CaptureScreenshot() {
 
 } // namespace
 
+// Called by the on-screen touch controls (port/web/shell.html) with a
+// KeyboardEvent.code value such as "ArrowLeft" or "Space".
+extern "C" EMSCRIPTEN_KEEPALIVE void etr_inject_key(const char* code, int down) {
+	const sf::Keyboard::Key k = MapKey(code, "");
+	if (k == sf::Keyboard::Unknown || keyState[k] == (down != 0)) return;
+	keyState[k] = down != 0;
+	PushKey(k, down != 0, nullptr);
+}
+
 namespace sf {
 
 // ------------------------------------------------------------------

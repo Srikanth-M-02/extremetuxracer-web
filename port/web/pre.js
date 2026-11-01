@@ -17,6 +17,16 @@ Module.preRun.push(function() {
 	});
 });
 
+// Module.etrReady: true once the runtime is initialized and exported
+// functions may be called (Module.calledRun is not exposed any more).
+(function() {
+	var previous = Module.onRuntimeInitialized;
+	Module.onRuntimeInitialized = function() {
+		Module.etrReady = true;
+		if (previous) previous();
+	};
+})();
+
 (function() {
 	var syncing = false;
 	var again = false;
@@ -31,7 +41,7 @@ Module.preRun.push(function() {
 	};
 
 	function saveNow() {
-		if (Module.calledRun && Module._etr_save_progress) {
+		if (Module.etrReady && Module._etr_save_progress) {
 			try { Module._etr_save_progress(); } catch (e) { console.warn(e); }
 		}
 	}

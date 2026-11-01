@@ -12,6 +12,8 @@ of the License, or (at your option) any later version.
 #ifndef ETR_WEB_PLATFORM_H
 #define ETR_WEB_PLATFORM_H
 
+class State;
+
 namespace WebPlatform {
 
 // Writes players and high scores (once they have been loaded) and
@@ -24,6 +26,10 @@ void SyncFileSystem();
 // Browser full screen (the page, not the game's video mode).
 bool IsFullscreen();
 void SetFullscreen(bool on);
+
+// Called after a state has been entered (shows or hides the touch
+// controls, which are only needed while racing).
+void StateEntered(const State* state);
 
 // Called when the player chose "Quit" in the game.
 void GameExited();

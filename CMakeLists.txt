@@ -43,13 +43,14 @@ target_include_directories(etr PRIVATE
 # ETR uses C++ exceptions; native WebAssembly exception handling is
 # supported by all current browsers.
 target_compile_options(etr PRIVATE -fwasm-exceptions
-	-Wall -Wno-unused-variable -Wno-unused-function -Wno-unused-but-set-variable -Wno-overloaded-virtual)
+	-Wall -Wno-unused-variable -Wno-unused-function -Wno-unused-but-set-variable -Wno-overloaded-virtual
+	-Wno-unused-private-field)
 # stb headers trigger a few harmless warnings
 set_source_files_properties(
 	${CMAKE_SOURCE_DIR}/port/sfml/src/Graphics.cpp
 	${CMAKE_SOURCE_DIR}/port/sfml/src/Window.cpp
 	${CMAKE_SOURCE_DIR}/port/sfml/src/Audio.cpp
-	PROPERTIES COMPILE_OPTIONS "-Wno-unused-parameter;-Wno-sign-compare;-Wno-missing-field-initializers")
+	PROPERTIES COMPILE_OPTIONS "-Wno-unused-parameter;-Wno-sign-compare;-Wno-missing-field-initializers;-Wno-tautological-compare")
 
 set(ETR_WEB_DIR ${CMAKE_BINARY_DIR}/web)
 set_target_properties(etr PROPERTIES
@@ -65,8 +66,8 @@ set(ETR_LINK_FLAGS
 	-sINITIAL_MEMORY=128MB
 	-sSTACK_SIZE=4MB
 	-sENVIRONMENT=web
-	-sEXPORTED_FUNCTIONS=_main,_etr_save_progress
-	-sEXPORTED_RUNTIME_METHODS=FS
+	-sEXPORTED_FUNCTIONS=_main,_etr_save_progress,_etr_inject_key
+	-sEXPORTED_RUNTIME_METHODS=FS,ccall
 	-lidbfs.js
 	--pre-js ${CMAKE_SOURCE_DIR}/port/web/pre.js
 	--shell-file ${CMAKE_SOURCE_DIR}/port/web/shell.html
