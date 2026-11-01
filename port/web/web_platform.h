@@ -21,6 +21,10 @@ void SaveProgress();
 // Flushes /persist to IndexedDB (e.g. after the options were saved).
 void SyncFileSystem();
 
+// Browser full screen (the page, not the game's video mode).
+bool IsFullscreen();
+void SetFullscreen(bool on);
+
 // Called when the player chose "Quit" in the game.
 void GameExited();
 

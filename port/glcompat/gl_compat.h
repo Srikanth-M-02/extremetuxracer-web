@@ -164,6 +164,10 @@ const GLubyte* gluErrorString(GLenum error);
 // ---------------------------------------------------------------------
 // Legacy entry points implemented by the compatibility layer
 // ---------------------------------------------------------------------
+// glGetError() forces a synchronous round trip to the GPU process in
+// WebGL, and the game calls it every frame. Release builds report
+// GL_NO_ERROR without querying; debug builds (GLC_CHECK_ERRORS) query.
+GLenum glcGetError();
 void glcEnable(GLenum cap);
 void glcDisable(GLenum cap);
 GLboolean glcIsEnabled(GLenum cap);
@@ -248,6 +252,7 @@ void glcTexGeni(GLenum coord, GLenum pname, GLint param);
 void glcTexGenfv(GLenum coord, GLenum pname, const GLfloat* params);
 
 #ifndef GLC_NO_REDIRECT
+#define glGetError               glcGetError
 #define glEnable                 glcEnable
 #define glDisable                glcDisable
 #define glIsEnabled              glcIsEnabled

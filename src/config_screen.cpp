@@ -49,6 +49,10 @@ Then edit the below functions:
 #include "font.h"
 #include "winsys.h"
 
+#ifdef __EMSCRIPTEN__
+#include "../port/web/web_platform.h"
+#endif
+
 CGameConfig GameConfig;
 static std::string res_names[NUM_RESOLUTIONS];
 
@@ -62,6 +66,13 @@ static TWidget* textbuttons[2];
 static TLabel* descriptions[5];
 
 void SetConfig() {
+#ifdef __EMSCRIPTEN__
+	// The checkbox controls browser full screen; the canvas size follows
+	// the page, so no video mode change is needed.
+	if (fullscreen->checked != WebPlatform::IsFullscreen())
+		WebPlatform::SetFullscreen(fullscreen->checked);
+	fullscreen->checked = param.fullscreen;
+#endif
 	if (mus_vol->GetValue() != param.music_volume ||
 	        sound_vol->GetValue() != param.sound_volume ||
 	        language->GetValue() != param.language ||
@@ -156,7 +167,13 @@ void CGameConfig::Enter() {
 	fullscreen = AddCheckbox(area.left, area.top, framewidth-16, Trans.Text(31));
 	fullscreen->checked = param.fullscreen;
 
+#ifdef __EMSCRIPTEN__
+	// In the browser the resolution always follows the page size.
+	fullscreen->checked = WebPlatform::IsFullscreen();
+	resolution = AddUpDown(rightpos, area.top+dd*1, 0, 0, 0);
+#else
 	resolution = AddUpDown(rightpos, area.top+dd*1, 0, NUM_RESOLUTIONS-1, (int)param.res_type);
+#endif
 	mus_vol = AddUpDown(rightpos, area.top+dd*2, 0, 100, param.music_volume, 2, true);
 	sound_vol = AddUpDown(rightpos, area.top+dd*3, 0, 100, param.sound_volume, 2, true);
 	language = AddUpDown(rightpos, area.top+dd*4, 0, (int)Trans.languages.size() - 1, (int)param.language);

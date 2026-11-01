@@ -936,6 +936,14 @@ void Draw2D(const Vertex2D* verts, int count, GLenum primitive,
 // Legacy API implementation
 // =====================================================================
 
+GLenum glcGetError() {
+#ifdef GLC_CHECK_ERRORS
+	return ::glGetError();
+#else
+	return GL_NO_ERROR;
+#endif
+}
+
 void glcEnable(GLenum cap) { SetCap(cap, true); }
 void glcDisable(GLenum cap) { SetCap(cap, false); }
 

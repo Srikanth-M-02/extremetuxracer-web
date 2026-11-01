@@ -79,6 +79,18 @@
   }
   #status { margin: 10px 0 0; min-height: 1.5em; color: var(--muted); font-variant-numeric: tabular-nums; }
   #status.error { color: var(--error); }
+  #again {
+    margin: 14px 0 0;
+    padding: 10px 22px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #1a1a1a;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  #again:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
   .keys {
     margin: 28px 0 0;
     padding: 14px 16px;
@@ -139,6 +151,7 @@
     <p class="tagline">Race Tux down snowy mountains, collect herrings, beat the clock.</p>
     <div class="progress" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100"><div id="bar"></div></div>
     <p id="status" aria-live="polite">Starting…</p>
+    <button id="again" type="button" hidden>Play again</button>
     <dl class="keys">
       <dt>← →</dt><dd>Steer</dd>
       <dt>↑ / W</dt><dd>Paddle</dd>
@@ -162,7 +175,9 @@
   var statusEl = document.getElementById('status');
   var stage = document.getElementById('stage');
   var canvas = document.getElementById('canvas');
+  var again = document.getElementById('again');
   var failed = false;
+  again.addEventListener('click', function() { location.reload(); });
 
   function setStatus(text, isError) {
     statusEl.textContent = text;
@@ -202,15 +217,23 @@
   }
   window.addEventListener('resize', fitCanvas);
 
+  function isFullscreen() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement);
+  }
+  function setFullscreen(on) {
+    try {
+      if (on && !isFullscreen()) {
+        var el = document.documentElement;
+        var req = el.requestFullscreen || el.webkitRequestFullscreen;
+        var p = req && req.call(el);
+        if (p && p.catch) p.catch(function() {});
+      } else if (!on && isFullscreen()) {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      }
+    } catch (e) { /* not allowed without a user gesture */ }
+  }
   document.getElementById('fullscreen').addEventListener('click', function() {
-    var doc = document;
-    if (doc.fullscreenElement || doc.webkitFullscreenElement) {
-      (doc.exitFullscreen || doc.webkitExitFullscreen).call(doc);
-    } else {
-      var el = document.documentElement;
-      var req = el.requestFullscreen || el.webkitRequestFullscreen;
-      if (req) req.call(el);
-    }
+    setFullscreen(!isFullscreen());
     canvas.focus();
   });
 
@@ -252,10 +275,14 @@
     etrAvailableSize: availableSize,
     etrFitCanvas: fitCanvas,
     etrFatal: fatal,
+    etrSetFullscreen: setFullscreen,
     etrOnExit: function() {
+      setFullscreen(false);
       loader.classList.remove('hidden');
       bar.parentNode.style.display = 'none';
-      setStatus('Thanks for playing! Reload the page to race again.');
+      setStatus('Thanks for playing!');
+      again.hidden = false;
+      again.focus();
     }
   };
 

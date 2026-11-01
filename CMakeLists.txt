@@ -75,6 +75,7 @@ set(ETR_LINK_FLAGS
 )
 
 if(ETR_DEBUG)
+	target_compile_definitions(etr PRIVATE GLC_CHECK_ERRORS)
 	target_compile_options(etr PRIVATE -g -O1)
 	list(APPEND ETR_LINK_FLAGS -g -O1 -sASSERTIONS=2 -sGL_ASSERTIONS=1)
 else()

@@ -33,6 +33,22 @@ void SaveProgress() {
 	SyncFileSystem();
 }
 
+EM_JS(int, etr_is_fullscreen, (), {
+	return (document.fullscreenElement || document.webkitFullscreenElement) ? 1 : 0;
+});
+
+EM_JS(void, etr_set_fullscreen, (int on), {
+	if (Module.etrSetFullscreen) Module.etrSetFullscreen(!!on);
+});
+
+bool IsFullscreen() {
+	return etr_is_fullscreen() != 0;
+}
+
+void SetFullscreen(bool on) {
+	etr_set_fullscreen(on ? 1 : 0);
+}
+
 void GameExited() {
 	SyncFileSystem();
 	EM_ASM({ if (Module.etrOnExit) Module.etrOnExit(); });
