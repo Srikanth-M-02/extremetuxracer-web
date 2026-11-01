@@ -35,13 +35,13 @@ jobs:
       - name: Build
         run: |
           source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
-          emcmake cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-          cmake --build build -j "$(nproc)"
+          emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-web -j "$(nproc)"
 
       - name: Collect site
         run: |
           mkdir site
-          cp build/web/index.html build/web/etr.js build/web/etr.wasm build/web/etr.data site/
+          cp build-web/web/index.html build-web/web/etr.js build-web/web/etr.wasm build-web/web/etr.data site/
           ls -la site
 
       - name: Upload site

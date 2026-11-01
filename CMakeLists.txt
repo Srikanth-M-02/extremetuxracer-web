@@ -1,9 +1,9 @@
 # Extreme Tux Racer - WebAssembly / WebGL 2 build.
 #
-#   emcmake cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-#   cmake --build build -j
+#   emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release
+#   cmake --build build-web -j
 #
-# The output in build/web/ (index.html, etr.js, etr.wasm, etr.data) can be
+# The output in build-web/web/ (index.html, etr.js, etr.wasm, etr.data) can be
 # served by any static web server.
 
 cmake_minimum_required(VERSION 3.16)

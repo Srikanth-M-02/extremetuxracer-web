@@ -40,19 +40,19 @@ You need [Emscripten](https://emscripten.org/docs/getting_started/downloads.html
 (tested with 6.0.13) and CMake 3.16 or later.
 
 ```bash
-emcmake cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release
 ```
 
 ```bash
-cmake --build build -j
+cmake --build build-web -j
 ```
 
-The game is written to `build/web/` (`index.html`, `etr.js`, `etr.wasm`,
+The game is written to `build-web/web/` (`index.html`, `etr.js`, `etr.wasm`,
 `etr.data`). Browsers don't run WebAssembly from `file://` URLs, so serve the
 directory over HTTP, for example:
 
 ```bash
-python3 -m http.server -d build/web 8080
+python3 -m http.server -d build-web/web 8080
 ```
 
 Then open <http://localhost:8080>.
@@ -67,7 +67,7 @@ pushes to `main` or `master` it also publishes the result to GitHub Pages. To
 enable publishing, open the repository's **Settings → Pages** and set
 **Source** to **GitHub Actions**.
 
-Any other static web host works too: upload the four files from `build/web/`.
+Any other static web host works too: upload the four files from `build-web/web/`.
 
 ## How the port works
 
